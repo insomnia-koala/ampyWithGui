@@ -2,10 +2,14 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-import os
+import os, subprocess, json
 
 class ampyWithGui(object):
     def __init__(self):
+        try:
+            subprocess.check_output("ampy --version")
+        except:
+            raise(Exception("pls install ampy and add to env_path"))
         self.window = tk.Tk()
         self.window.title('ESP File Manager')  
 
@@ -15,15 +19,10 @@ class ampyWithGui(object):
         self.frame.rowconfigure(8, weight=1)
         self.frame.pack(fill = "both", expand = True)
 
-        self.ip_notify = tk.Label(self.frame, text='IP Addr:')
-        self.ip_notify.grid(row = 0, column = 0, sticky=tk.NW, padx=5)
-        self.ip_entry = tk.Entry(self.frame)
-        self.ip_entry.grid(row = 1, column = 0, sticky=tk.N + tk.W +tk.E, padx=5)
-
-        self.pwd_notify = tk.Label(self.frame, text='Password:')
-        self.pwd_notify.grid(row = 2, column = 0, sticky=tk.NW, padx=5)
-        self.pwd = tk.Entry(self.frame)
-        self.pwd.grid(row = 3, column = 0, sticky=tk.N + tk.W +tk.E, padx=5)
+        self.port_notify = tk.Label(self.frame, text='Port:')
+        self.port_notify.grid(row = 0, column = 0, sticky=tk.NW, padx=5)
+        self.port_entry = tk.Entry(self.frame)
+        self.port_entry.grid(row = 1, column = 0, sticky=tk.N + tk.W +tk.E, padx=5)
 
         self.path_notify = tk.Label(self.frame, text='Local path:')
         self.path_notify.grid(row = 4, column = 0, sticky=tk.NW, padx=5)
@@ -33,17 +32,19 @@ class ampyWithGui(object):
 
         self.btn_frame = tk.Frame(self.frame)
         self.btn_frame.grid(row = 6, column = 0, sticky=tk.W, pady=10)
-        self.path_btn = tk.Button(self.btn_frame, text="open", command=self.getPath)
+        self.path_btn = tk.Button(self.btn_frame, text="open", command=self.onPathBtnClick)
+        self.readRemote_btn = tk.Button(self.btn_frame, text="Read remote", command=self.onReadRemoteBtnClick)
         self.upload_btn = tk.Button(self.btn_frame, text="Upload")
         self.uploadAll_btn = tk.Button(self.btn_frame, text="UploadAll")
         self.download_btn = tk.Button(self.btn_frame, text="Download")
         self.downloadAll_btn = tk.Button(self.btn_frame, text="DownloadAll")
 
         self.path_btn.grid(row = 0, column = 0, padx=5)
-        self.upload_btn.grid(row = 0, column = 1, padx=5)
-        self.uploadAll_btn.grid(row = 0, column = 2, padx=5)
-        self.download_btn.grid(row = 0, column = 3, padx=5)
-        self.downloadAll_btn.grid(row = 0, column = 4, padx=5)
+        self.readRemote_btn.grid(row = 0, column = 1, padx=5)
+        self.upload_btn.grid(row = 0, column = 2, padx=5)
+        self.uploadAll_btn.grid(row = 0, column = 3, padx=5)
+        self.download_btn.grid(row = 0, column = 4, padx=5)
+        self.downloadAll_btn.grid(row = 0, column = 5, padx=5)
 
         self.localTree_notify = tk.Label(self.frame, text='Local dir content:')
         self.localTree_notify.grid(row = 7, column = 0, sticky=tk.NW, padx=5)
@@ -89,9 +90,29 @@ class ampyWithGui(object):
                     if(not self.localTree.exists(file_iid)):
                         self.localTree.insert(os.path.dirname(file_iid), 'end', file_iid, text=os.path.split(file_iid)[1])    
 
-    def getPath(self):
+
+    def onPathBtnClick(self):
         self.path_entry.delete(0, 'end')
         self.path_entry.insert(0, filedialog.askdirectory().replace('/', '\\'))
         self.parseLocalPath()
+
+    def onReadRemoteBtnClick(self):
+        self.cleanTreeView(self.remoteTree)
+        port = self.port_entry.get()
+        output = subprocess.check_output("ampy -p {} run getDeviceFileTree.py".format(port)).decode().split("\r\r\n")
+        if len(output) != 3:
+            return
+        else:
+            dirs = json.loads(output[0])
+            files = json.loads(output[1])
+            
+            self.remoteTree.insert("", 'end', '/', text='/')
+            for dir in dirs:
+                if(not self.remoteTree.exists(dir)):
+                    self.remoteTree.insert(os.path.dirname(dir), 'end', dir, text=dir)
+
+            for file in files:
+                if(not self.remoteTree.exists(file)):
+                    self.remoteTree.insert(os.path.dirname(file), 'end', file, text=os.path.split(file)[1])
 
 a = ampyWithGui()
